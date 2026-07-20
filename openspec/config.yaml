@@ -1,0 +1,213 @@
+name: Backend Login Template
+
+description: >
+  Plantilla reutilizable para desarrollar aplicaciones Full Stack con
+  autenticación. Incluye Login, Registro, JWT, Refresh Tokens,
+  autorización basada en roles y una arquitectura escalable siguiendo
+  Specification Driven Development (SDD).
+
+stack:
+  frontend:
+    framework: React
+    language: TypeScript
+    bundler: Vite
+    router: React Router
+    forms: React Hook Form
+    validation: Zod
+    http: Axios
+
+  backend:
+    framework: NestJS
+    language: TypeScript
+    runtime: Node.js 22
+    orm: Prisma
+    authentication:
+      - JWT
+      - Refresh Token
+      - Bcrypt
+    validation: class-validator
+
+  database:
+    engine: PostgreSQL
+
+  infrastructure:
+    docker: true
+    dockerCompose: true
+
+  testing:
+    frontend: Vitest
+    backend: Jest
+
+commands:
+  frontend:
+    dev: npm run dev
+    build: npm run build
+    test: npm run test
+    lint: npm run lint
+
+  backend:
+    dev: npm run start:dev
+    build: npm run build
+    test: npm run test
+    lint: npm run lint
+
+architecture:
+  style: Feature First
+
+  backend:
+    folders:
+      - src/auth
+      - src/users
+      - src/common
+      - src/config
+      - src/database
+
+    principles:
+      - SOLID
+      - Separation of Concerns
+      - Dependency Injection
+      - Clean Architecture cuando aporte valor
+
+  frontend:
+    folders:
+      - src/features
+      - src/components
+      - src/pages
+      - src/hooks
+      - src/services
+      - src/routes
+      - src/shared
+
+projectStructure:
+  root:
+    - frontend/
+    - backend/
+    - docker/
+    - .openspec/
+    - docker-compose.yml
+    - README.md
+
+codingStandards:
+  language: English
+
+  naming:
+    variables: camelCase
+    functions: camelCase
+    classes: PascalCase
+    interfaces: PascalCase
+    files: kebab-case
+
+  typescript:
+    strict: true
+    allowAny: false
+    preferInterfaces: true
+
+  comments:
+    onlyWhenNecessary: true
+
+backendRules:
+  controllers:
+    - Solo reciben solicitudes HTTP.
+    - Nunca contienen lógica de negocio.
+
+  services:
+    - Toda la lógica de negocio vive aquí.
+
+  repositories:
+    - Solo acceso a datos.
+
+  dto:
+    - Validar todas las entradas.
+    - Usar class-validator.
+
+frontendRules:
+  components:
+    - Deben ser pequeños y reutilizables.
+
+  pages:
+    - Solo composición de componentes.
+
+  hooks:
+    - Extraer lógica reutilizable.
+
+  api:
+    - Centralizar llamadas en services.
+
+security:
+  - Nunca guardar contraseñas sin hash.
+  - Usar bcrypt.
+  - Access Token JWT.
+  - Refresh Token.
+  - Variables de entorno para secretos.
+  - No subir archivos .env.
+  - Validar toda entrada del usuario.
+  - Sanitizar datos cuando corresponda.
+
+testing:
+  - Toda lógica importante debe tener pruebas.
+  - Mantener cobertura en servicios críticos.
+  - Ejecutar tests antes de cada commit.
+
+git:
+  convention: Conventional Commits
+
+  prefixes:
+    - feat
+    - fix
+    - refactor
+    - docs
+    - test
+    - chore
+
+workflow:
+  planning:
+    - Antes de implementar una tarea no trivial, presentar un plan.
+    - Esperar aprobación antes de comenzar.
+
+  execution:
+    - Trabajar una tarea a la vez.
+    - Al finalizar, resumir los cambios realizados.
+    - Si la confianza es menor al 80%, pedir aclaración.
+
+doNot:
+  - No instalar dependencias sin aprobación.
+  - No modificar código legado sin autorización.
+  - No usar any sin justificación.
+  - No duplicar código.
+  - No colocar lógica de negocio en controladores.
+  - No acceder directamente a la base de datos desde los controladores.
+  - No hardcodear secretos.
+  - No ignorar errores.
+  - No romper la arquitectura Feature First.
+  - No subir archivos .env al repositorio.
+
+documentation:
+  architecture: .openspec/architecture.md
+  conventions: .openspec/conventions.md
+  techStack: .openspec/tech-stack.md
+
+rules:
+  - camelCase para variables y funciones.
+specifications:
+  initialModules:
+    - Auth
+    - Users
+
+  authFeatures:
+    - Login
+    - Register
+    - Logout
+    - Refresh Token
+    - Forgot Password
+    - Reset Password
+    - Email Verification
+    - Roles
+    - Permissions
+
+lenguaje: -Las funciones y variables deben estar en inglés.
+goals:
+  - Código limpio.
+  - Alta reutilización.
+  - Fácil mantenimiento.
+  - Escalable para nuevos módulos.
+  - Preparado para reutilizar como plantilla en futuros proyectos.
