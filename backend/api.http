@@ -13,7 +13,7 @@ Content-Type: application/json
 
 ### 2. Obtener un usuario por ID (GET)
 # Copia y pega el ID (UUID) devuelto en la creación de arriba
-@userId = 9340d0be-1d3b-4c8a-8bce-e96b54e96ecc
+@userId = ee4d02f3-d711-47de-b7aa-b8b1f233f938
 
 GET {{baseUrl}}/users/{{userId}}
 
