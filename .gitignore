@@ -13,6 +13,7 @@ backend/dist/
 # Variables de entorno
 frontend/.env
 backend/.env
+.agents/mcp_config.json
 
 # Logs
 *.log

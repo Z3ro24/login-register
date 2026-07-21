@@ -1,30 +1,75 @@
 @baseUrl = http://localhost:3000/api/v1
 
-### 1. Crear un usuario (POST)
+### 1. Obtener Token CSRF (Público)
+# Ejecuta esto primero para obtener la cookie de sesión CSRF si es requerida por el cliente
+GET http://localhost:3000/api/v1/security/csrf-token
+
+### 2. Crear un usuario normal (POST - Público)
 # @name createUser
 POST {{baseUrl}}/users
 Content-Type: application/json
 
 {
-  "name": "Bastian",
-  "email": "bastian1@example.com",
+  "name": "Bastian User",
+  "email": "user@example.com",
+  "password": "securepassword123",
+  "role": "USER"
+}
+
+### 3. Crear un usuario administrador (POST - Público)
+# @name createAdmin
+POST {{baseUrl}}/users
+Content-Type: application/json
+
+{
+  "name": "Bastian Admin",
+  "email": "admin@example.com",
+  "password": "securepassword123",
+  "role": "ADMIN"
+}
+
+### 4. Iniciar sesión como administrador (POST - Público)
+# @name loginAdmin
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
   "password": "securepassword123"
 }
 
-### 2. Obtener un usuario por ID (GET)
-# Copia y pega el ID (UUID) devuelto en la creación de arriba
-@userId = ee4d02f3-d711-47de-b7aa-b8b1f233f938
+### 5. Iniciar sesión como usuario normal (POST - Público)
+# @name loginUser
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
 
+{
+  "email": "user@example.com",
+  "password": "securepassword123"
+}
+
+### 6. Obtener perfil de usuario (GET - Protegido por AuthGuard)
+# Reemplaza el ID con un UUID existente
+@userId = d0726518-42d8-43cc-be35-78c2e07e723b
 GET {{baseUrl}}/users/{{userId}}
 
-### 3. Actualizar un usuario (PATCH)
+### 7. Actualizar usuario (PATCH - Protegido por AuthGuard y Ownership check)
+# Nota: Si estás logueado como 'user@example.com', intentar modificar a otro ID dará 403 Forbidden.
 PATCH {{baseUrl}}/users/{{userId}}
 Content-Type: application/json
 
 {
-  "name": "Bastian Actualizado",
-  "email": "bastian.nuevo@example.com"
+  "name": "Bastian Modificado"
 }
 
-### 4. Eliminar/Desactivar un usuario (DELETE)
+### 8. Eliminar usuario (DELETE - Protegido por RolesGuard, requiere ADMIN)
+# Nota: Si estás logueado como 'user@example.com' dará 403 Forbidden. Requiere cookie de sesión de ADMIN.
 DELETE {{baseUrl}}/users/{{userId}}
+
+### 9. Refrescar token de acceso (POST - Público)
+# Lee la cookie refreshToken y devuelve una nueva cookie accessToken
+POST {{baseUrl}}/auth/refresh
+
+### 10. Cerrar sesión (POST - Público)
+# Limpia las cookies de sesión
+POST {{baseUrl}}/auth/logout

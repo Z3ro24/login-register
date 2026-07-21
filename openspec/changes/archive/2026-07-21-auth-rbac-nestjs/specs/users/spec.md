@@ -1,7 +1,5 @@
-## Purpose
+## MODIFIED Requirements
 
-Provide standard endpoints to manage User entities (creation, safe retrieval, updates, and soft deletion) with validation rules for email and ID uniqueness.
-## Requirements
 ### Requirement: User creation
 The system SHALL support creating a new user with the specified attributes (name, email, password, and optionally role).
 - The system SHALL auto-generate a unique `id` (UUIDv4) and set `isActive` to `true`, `created_at` and `updated_at` to the current timestamp, `deleteAt` to `null`, and `role` to 'USER' if not specified.
@@ -18,18 +16,6 @@ The system SHALL support creating a new user with the specified attributes (name
 #### Scenario: User creation with invalid input data
 - **WHEN** a client sends a POST request to `/users` with missing fields or an invalid email format
 - **THEN** the system SHALL reject the request with status code 400 (Bad Request).
-
-### Requirement: User retrieval
-The system SHALL support retrieving user details by their ID.
-- The system MUST exclude the password field from the returned user object.
-
-#### Scenario: Successful user retrieval
-- **WHEN** a client sends a GET request to `/users/:id` with a valid, existing user ID
-- **THEN** the system SHALL return the user details (excluding the password) with status code 200.
-
-#### Scenario: User retrieval for non-existent user
-- **WHEN** a client sends a GET request to `/users/:id` with a non-existent UUID
-- **THEN** the system SHALL return status code 404 (Not Found).
 
 ### Requirement: User update
 The system SHALL support updating user attributes by ID.
@@ -48,16 +34,3 @@ The system SHALL support updating user attributes by ID.
 #### Scenario: User update for non-existent user
 - **WHEN** a client sends a PATCH request to `/users/:id` with a non-existent UUID
 - **THEN** the system SHALL return status code 404 (Not Found).
-
-### Requirement: User soft-deletion
-The system SHALL support deleting a user by their ID.
-- When a user is deleted, the system SHALL perform a soft delete by setting `isActive` to `false` and setting `deleteAt` to the current timestamp.
-
-#### Scenario: Successful user soft-deletion
-- **WHEN** a client sends a DELETE request to `/users/:id` with an existing user ID
-- **THEN** the system SHALL set `isActive` to `false`, `deleteAt` to the current timestamp, and return status code 200.
-
-#### Scenario: User soft-deletion for non-existent user
-- **WHEN** a client sends a DELETE request to `/users/:id` with a non-existent UUID
-- **THEN** the system SHALL return status code 404 (Not Found).
-

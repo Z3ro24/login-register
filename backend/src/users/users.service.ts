@@ -9,7 +9,7 @@ export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createUserDto: CreateUserDto) {
-    const { name, email, password } = createUserDto;
+    const { name, email, password, role } = createUserDto;
 
     // Check if email already exists
     const existingUser = await this.findByEmail(email);
@@ -26,6 +26,7 @@ export class UsersService {
         name,
         email,
         password: hashedPassword,
+        role,
       },
     });
 
@@ -62,7 +63,7 @@ export class UsersService {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
 
-    const { email, password, name, isActive } = updateUserDto;
+    const { email, password, name, isActive, role } = updateUserDto;
 
     // If changing email, check for uniqueness conflicts
     if (email && email !== existingUser.email) {
@@ -77,6 +78,7 @@ export class UsersService {
     if (name !== undefined) updateData.name = name;
     if (email !== undefined) updateData.email = email;
     if (isActive !== undefined) updateData.isActive = isActive;
+    if (role !== undefined) updateData.role = role;
     
     if (password) {
       updateData.password = await bcrypt.hash(password, 10);
