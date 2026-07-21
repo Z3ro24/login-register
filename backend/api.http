@@ -1,0 +1,30 @@
+@baseUrl = http://localhost:3000/api/v1
+
+### 1. Crear un usuario (POST)
+# @name createUser
+POST {{baseUrl}}/users
+Content-Type: application/json
+
+{
+  "name": "Bastian",
+  "email": "bastian1@example.com",
+  "password": "securepassword123"
+}
+
+### 2. Obtener un usuario por ID (GET)
+# Copia y pega el ID (UUID) devuelto en la creación de arriba
+@userId = 9340d0be-1d3b-4c8a-8bce-e96b54e96ecc
+
+GET {{baseUrl}}/users/{{userId}}
+
+### 3. Actualizar un usuario (PATCH)
+PATCH {{baseUrl}}/users/{{userId}}
+Content-Type: application/json
+
+{
+  "name": "Bastian Actualizado",
+  "email": "bastian.nuevo@example.com"
+}
+
+### 4. Eliminar/Desactivar un usuario (DELETE)
+DELETE {{baseUrl}}/users/{{userId}}
