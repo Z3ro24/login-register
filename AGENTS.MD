@@ -1,4 +1,4 @@
-# [Nombre del proyecto]
+# [Backend Login]
 
 [Una o dos frases: qué es el proyecto y para quién. En lenguaje claro.]
 
@@ -37,7 +37,8 @@
 ## No hagas
 
 - [Límite duro, p. ej. no instalar dependencias sin avisar.]
-- [Zona prohibida, p. ej. no tocar `src/legacy/`, está congelada.] - [Regla de seguridad, p. ej. no subir archivos `.env*` al
+- [Zona prohibida, p. ej. no tocar `src/legacy/`, está congelada.]
+- [Regla de seguridad, p. ej. no subir archivos `.env*` al
   repositorio.]
 - [Antipatrón, p. ej. no usar `any` en TypeScript sin justificarlo.]
 

@@ -106,6 +106,13 @@ codingStandards:
     onlyWhenNecessary: true
 
 backendRules:
+  asynchronousProgramming:
+    - Usar async/await.
+    - Evitar callbacks.
+  try/catch:
+    - Manejar errores en todos los casos.
+    - No ignorar errores.
+    - Usar filtros de excepción en NestJS.
   controllers:
     - Solo reciben solicitudes HTTP.
     - Nunca contienen lógica de negocio.
@@ -180,31 +187,29 @@ doNot:
   - No ignorar errores.
   - No romper la arquitectura Feature First.
   - No subir archivos .env al repositorio.
-
+conventions:
+  - Seguir las convenciones de la comunidad para cada tecnología.
+  - Mantener consistencia en el estilo de código.
+  - Evitar reinventar la rueda, usar librerías existentes cuando sea posible.
+  - Codigo limpio y legible, priorizando la claridad sobre la brevedad.
+  - Si hay que instalar una dependencia, preguntar primero.
+  - cuando creamos un nuevo modulo en nestjs usa nest g res NombreModulo --no-spec
+  - como gestor de paquetes usar pnpm
 documentation:
   architecture: .openspec/architecture.md
   conventions: .openspec/conventions.md
   techStack: .openspec/tech-stack.md
 
 rules:
-  - camelCase para variables y funciones.
-specifications:
-  initialModules:
-    - Auth
-    - Users
-
-  authFeatures:
-    - Login
-    - Register
-    - Logout
-    - Refresh Token
-    - Forgot Password
-    - Reset Password
-    - Email Verification
-    - Roles
-    - Permissions
-
-lenguaje: -Las funciones y variables deben estar en inglés.
+  proposal:
+    - Las funciones y variables deben estar en inglés.
+  design:
+    - camelCase para variables y funciones.
+    - Las funciones y variables deben estar en inglés.
+  specs:
+    - Las funciones y variables deben estar en inglés.
+  tasks:
+    - Las funciones y variables deben estar en inglés.
 goals:
   - Código limpio.
   - Alta reutilización.
