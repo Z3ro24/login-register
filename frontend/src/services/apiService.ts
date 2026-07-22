@@ -10,6 +10,34 @@ export const api = axios.create({
   },
 });
 
+let csrfTokenInMemory = '';
+
+export const setCsrfToken = (token: string) => {
+  csrfTokenInMemory = token;
+};
+
+export const clearCsrfToken = () => {
+  csrfTokenInMemory = '';
+};
+
+// Request interceptor to automatically attach x-csrf-token header on mutating requests
+api.interceptors.request.use((config) => {
+  const isMutatingMethod = ['post', 'put', 'patch', 'delete'].includes(
+    config.method?.toLowerCase() || ''
+  );
+
+  if (isMutatingMethod && csrfTokenInMemory) {
+    if (config.headers && typeof config.headers.set === 'function') {
+      config.headers.set('x-csrf-token', csrfTokenInMemory);
+    } else {
+      config.headers = config.headers || {};
+      config.headers['x-csrf-token'] = csrfTokenInMemory;
+    }
+  }
+
+  return config;
+});
+
 // Response interceptor for automatic token refresh on HTTP 401
 api.interceptors.response.use(
   (response) => response,
@@ -32,6 +60,7 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch (refreshError) {
         // Clear auth state and redirect to login if refresh fails
+        clearCsrfToken();
         store.dispatch(logout());
         if (window.location.pathname !== '/') {
           window.location.href = '/';

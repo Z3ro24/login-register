@@ -14,10 +14,19 @@ import { LoginDto } from './dto/login.dto';
 import * as express from 'express';
 import { Public } from './decorators/public.decorator';
 import { ActiveUser } from '../common/decorators/active-user.decorator';
+import { generateCsrfToken } from '../csrf.config';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  @Get('csrf-token')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  getCsrfToken(@Req() request: express.Request, @Res() response: express.Response) {
+    const csrfToken = generateCsrfToken(request, response, { overwrite: true });
+    return response.json({ csrfToken });
+  }
 
   @Post('login')
   @Public()
@@ -34,9 +43,7 @@ export class AuthController {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      //maxAge: 30 * 60 * 1000, // 30 minutes
-      maxAge: 10 * 1000, // 30 minutes
-
+      maxAge: 30 * 60 * 1000, // 30 minutes
       path: '/',
     });
 
@@ -104,19 +111,25 @@ export class AuthController {
       await this.authService.revokeRefreshToken(refreshToken);
     }
 
-    response.cookie('accessToken', '', {
+    const authCookieOptions: express.CookieOptions = {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       maxAge: 0,
+      expires: new Date(0),
       path: '/',
-    });
+    };
 
-    response.cookie('refreshToken', '', {
+    response.cookie('accessToken', '', authCookieOptions);
+    response.cookie('refreshToken', '', authCookieOptions);
+
+    // Clear CSRF cookie on logout
+    response.cookie('_csrf', '', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: 'lax',
       maxAge: 0,
+      expires: new Date(0),
       path: '/',
     });
 
