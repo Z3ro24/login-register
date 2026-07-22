@@ -1,4 +1,14 @@
-import { Controller, Post, Get, Body, Res, Req, HttpCode, HttpStatus, UnauthorizedException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  Res,
+  Req,
+  HttpCode,
+  HttpStatus,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import * as express from 'express';
@@ -24,7 +34,9 @@ export class AuthController {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 30 * 60 * 1000, // 30 minutes
+      //maxAge: 30 * 60 * 1000, // 30 minutes
+      maxAge: 10 * 1000, // 30 minutes
+
       path: '/',
     });
 
@@ -58,8 +70,8 @@ export class AuthController {
       throw new UnauthorizedException('No refresh token provided');
     }
 
-    const payload = await this.authService.verifyRefreshToken(refreshToken);
-    const newAccessToken = await this.authService.generateAccessTokenFromPayload(payload);
+    const { newAccessToken, newRefreshToken } =
+      await this.authService.rotateRefreshToken(refreshToken);
 
     response.cookie('accessToken', newAccessToken, {
       httpOnly: true,
@@ -69,13 +81,29 @@ export class AuthController {
       path: '/',
     });
 
+    response.cookie('refreshToken', newRefreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: '/',
+    });
+
     return { message: 'Token refreshed successfully' };
   }
 
   @Post('logout')
   @Public()
   @HttpCode(HttpStatus.OK)
-  async logout(@Res({ passthrough: true }) response: express.Response) {
+  async logout(
+    @Req() request: express.Request,
+    @Res({ passthrough: true }) response: express.Response,
+  ) {
+    const refreshToken = request.cookies?.['refreshToken'];
+    if (refreshToken) {
+      await this.authService.revokeRefreshToken(refreshToken);
+    }
+
     response.cookie('accessToken', '', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

@@ -6,7 +6,6 @@ import { ValidationPipe } from '@nestjs/common';
 import { PrismaClientExceptionFilter } from './prisma/prisma-client-exception.filter';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
-import { doubleCsrfProtection } from './csrf.config';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -26,13 +25,12 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // Cookie parser is required before using csrf-csrf protection
-  app.use(
-    cookieParser(process.env.COOKIE_SECRET ?? 'cookie-secret-fallback-for-dev'),
-  );
-
-  // Double submit cookie CSRF protection
-  // app.use(doubleCsrfProtection);
+  // Cookie parser requires COOKIE_SECRET environment variable
+  const cookieSecret = process.env.COOKIE_SECRET;
+  if (!cookieSecret) {
+    throw new Error('COOKIE_SECRET environment variable is missing in .env');
+  }
+  app.use(cookieParser(cookieSecret));
 
   // Enable global validation pipe for request DTOs
   app.useGlobalPipes(
