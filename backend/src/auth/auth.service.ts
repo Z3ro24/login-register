@@ -33,11 +33,24 @@ export class AuthService {
       expiresIn: '7d',
     });
 
-    const { password: _, ...userWithoutPassword } = user;
     return {
       accessToken,
       refreshToken,
-      user: userWithoutPassword,
+      user: {
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    };
+  }
+
+  async getMe(userId: string) {
+    const user = await this.usersService.findOne(userId);
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
     };
   }
 

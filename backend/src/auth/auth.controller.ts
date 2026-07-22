@@ -1,8 +1,9 @@
-import { Controller, Post, Body, Res, Req, HttpCode, HttpStatus, UnauthorizedException } from '@nestjs/common';
+import { Controller, Post, Get, Body, Res, Req, HttpCode, HttpStatus, UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import * as express from 'express';
 import { Public } from './decorators/public.decorator';
+import { ActiveUser } from '../common/decorators/active-user.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -37,6 +38,12 @@ export class AuthController {
     });
 
     return result.user;
+  }
+
+  @Get('me')
+  @HttpCode(HttpStatus.OK)
+  async getMe(@ActiveUser('sub') userId: string) {
+    return this.authService.getMe(userId);
   }
 
   @Post('refresh')
