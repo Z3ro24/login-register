@@ -9,6 +9,7 @@ import {
   HttpStatus,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import * as express from 'express';
@@ -30,6 +31,7 @@ export class AuthController {
 
   @Post('login')
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @HttpCode(HttpStatus.OK)
   async login(
     @Body() loginDto: LoginDto,
@@ -134,5 +136,37 @@ export class AuthController {
     });
 
     return { message: 'Logged out successfully' };
+  }
+
+  @Post('logout-all')
+  @HttpCode(HttpStatus.OK)
+  async logoutAll(
+    @ActiveUser('sub') userId: string,
+    @Res({ passthrough: true }) response: express.Response,
+  ) {
+    await this.authService.revokeAllUserRefreshTokens(userId);
+
+    const authCookieOptions: express.CookieOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 0,
+      expires: new Date(0),
+      path: '/',
+    };
+
+    response.cookie('accessToken', '', authCookieOptions);
+    response.cookie('refreshToken', '', authCookieOptions);
+
+    response.cookie('_csrf', '', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 0,
+      expires: new Date(0),
+      path: '/',
+    });
+
+    return { message: 'Logged out from all devices successfully' };
   }
 }

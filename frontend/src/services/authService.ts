@@ -44,6 +44,15 @@ export const authService = {
     }
   },
 
+  logoutAll: async (): Promise<{ message: string }> => {
+    try {
+      const response = await api.post<{ message: string }>('/auth/logout-all');
+      return response.data;
+    } finally {
+      clearCsrfToken();
+    }
+  },
+
   refresh: async (): Promise<{ message: string }> => {
     const response = await api.post<{ message: string }>('/auth/refresh');
     return response.data;

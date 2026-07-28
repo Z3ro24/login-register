@@ -139,6 +139,7 @@ describe('AuthService', () => {
       prismaService.refreshToken.findUnique.mockResolvedValue({
         id: 'token-uuid',
         token: 'hashedToken',
+        userId: 'uuid-123',
         isRevoked: false,
       });
       jwtService.signAsync
@@ -158,18 +159,23 @@ describe('AuthService', () => {
       });
     });
 
-    it('should throw UnauthorizedException if token is revoked in DB', async () => {
+    it('should detect reuse and trigger mass revocation if token is revoked in DB', async () => {
       const payload = { sub: 'uuid-123', email: 'test@example.com', role: 'USER' };
       jwtService.verifyAsync.mockResolvedValue(payload);
       prismaService.refreshToken.findUnique.mockResolvedValue({
         id: 'token-uuid',
         token: 'hashedToken',
+        userId: 'uuid-123',
         isRevoked: true,
       });
 
       await expect(service.rotateRefreshToken('revokedToken')).rejects.toThrow(
         UnauthorizedException,
       );
+      expect(prismaService.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { userId: 'uuid-123' },
+        data: { isRevoked: true },
+      });
     });
   });
 
@@ -179,6 +185,17 @@ describe('AuthService', () => {
 
       expect(prismaService.refreshToken.updateMany).toHaveBeenCalledWith({
         where: { token: service.hashToken('tokenToRevoke') },
+        data: { isRevoked: true },
+      });
+    });
+  });
+
+  describe('revokeAllUserRefreshTokens', () => {
+    it('should revoke all refresh tokens for a given user', async () => {
+      await service.revokeAllUserRefreshTokens('uuid-123');
+
+      expect(prismaService.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { userId: 'uuid-123' },
         data: { isRevoked: true },
       });
     });

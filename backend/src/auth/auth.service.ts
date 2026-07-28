@@ -110,8 +110,15 @@ export class AuthService {
       where: { token: hashedToken },
     });
 
-    if (!storedToken || storedToken.isRevoked) {
-      throw new UnauthorizedException('Refresh token is invalid or revoked');
+    if (!storedToken) {
+      throw new UnauthorizedException('Refresh token is invalid or missing');
+    }
+
+    // Reuse Detection: If token is already revoked, an attacker may have stolen it!
+    // Revoke ALL active refresh tokens for this user immediately for security.
+    if (storedToken.isRevoked) {
+      await this.revokeAllUserRefreshTokens(storedToken.userId);
+      throw new UnauthorizedException('Security Alert: Refresh token reuse detected. All sessions revoked.');
     }
 
     // 3. Revoke current token
@@ -162,6 +169,13 @@ export class AuthService {
     } catch {
       // Ignore if token is not found
     }
+  }
+
+  async revokeAllUserRefreshTokens(userId: string) {
+    await this.prisma.refreshToken.updateMany({
+      where: { userId },
+      data: { isRevoked: true },
+    });
   }
 
   async generateAccessTokenFromPayload(payload: { sub: string; email: string; role: string }) {
