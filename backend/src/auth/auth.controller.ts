@@ -8,7 +8,9 @@ import {
   HttpCode,
   HttpStatus,
   UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
+import { AuthGuard as PassportAuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -59,6 +61,50 @@ export class AuthController {
     });
 
     return result.user;
+  }
+
+  @Get('google')
+  @Public()
+  @UseGuards(PassportAuthGuard('google'))
+  async googleAuth() {
+    // Passport initiates the Google OAuth 2.0 redirect flow automatically
+  }
+
+  @Get('google/callback')
+  @Public()
+  @UseGuards(PassportAuthGuard('google'))
+  async googleAuthRedirect(
+    @Req() request: express.Request,
+    @Res() response: express.Response,
+  ) {
+    const googleUser = request.user as { email: string; name: string };
+    if (!googleUser || !googleUser.email) {
+      throw new UnauthorizedException('Google OAuth authentication failed');
+    }
+
+    const result = await this.authService.validateOAuthUser(googleUser);
+
+    response.cookie('accessToken', result.accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 30 * 60 * 1000, // 30 minutes
+      path: '/',
+    });
+
+    response.cookie('refreshToken', result.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: '/',
+    });
+
+    const frontendUrl = process.env.CORS_ALLOWED_ORIGINS
+      ? process.env.CORS_ALLOWED_ORIGINS.split(',')[0]
+      : 'http://localhost:5173';
+
+    return response.redirect(`${frontendUrl}/home`);
   }
 
   @Get('me')

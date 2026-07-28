@@ -152,6 +152,65 @@ export class AuthService {
     };
   }
 
+  async validateOAuthUser(profile: { email: string; name: string }) {
+    const existingUser = await this.usersService.findByEmail(profile.email);
+    let userId: string;
+    let userName: string;
+    let userEmail: string;
+    let userRole: string;
+
+    if (!existingUser) {
+      const randomPassword = 'OAuthUserPassword123!';
+      const createdUser = await this.usersService.create({
+        name: profile.name,
+        email: profile.email,
+        password: randomPassword,
+      });
+      userId = createdUser.id;
+      userName = createdUser.name;
+      userEmail = createdUser.email;
+      userRole = createdUser.role;
+    } else {
+      userId = existingUser.id;
+      userName = existingUser.name;
+      userEmail = existingUser.email;
+      userRole = existingUser.role;
+    }
+
+    const payload = { sub: userId, email: userEmail, role: userRole };
+
+    const accessToken = await this.jwtService.signAsync(payload, {
+      secret: this.getAccessSecret(),
+      expiresIn: '30m',
+    });
+
+    const refreshToken = await this.jwtService.signAsync(payload, {
+      secret: this.getRefreshSecret(),
+      expiresIn: '7d',
+    });
+
+    const hashedToken = this.hashToken(refreshToken);
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    await this.prisma.refreshToken.create({
+      data: {
+        token: hashedToken,
+        userId: userId,
+        expiresAt,
+      },
+    });
+
+    return {
+      accessToken,
+      refreshToken,
+      user: {
+        name: userName,
+        email: userEmail,
+        role: userRole,
+      },
+    };
+  }
+
   async getMe(userId: string) {
     const user = await this.usersService.findOne(userId);
     return {
