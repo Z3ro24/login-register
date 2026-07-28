@@ -68,7 +68,7 @@ describe('AuthService', () => {
   });
 
   describe('signIn', () => {
-    const email = 'test@example.com';
+    const email = 'testlock@example.com';
     const password = 'password123';
     const hashedPassword = 'hashedPassword123';
     const user = {
@@ -117,7 +117,7 @@ describe('AuthService', () => {
     it('should throw UnauthorizedException if user is not found', async () => {
       usersService.findByEmail.mockResolvedValue(null);
 
-      await expect(service.signIn(email, password)).rejects.toThrow(
+      await expect(service.signIn('unknown@example.com', password)).rejects.toThrow(
         UnauthorizedException,
       );
     });
@@ -126,8 +126,26 @@ describe('AuthService', () => {
       usersService.findByEmail.mockResolvedValue(user as any);
       (bcrypt.compare as jest.Mock).mockResolvedValue(false);
 
-      await expect(service.signIn(email, password)).rejects.toThrow(
+      await expect(service.signIn('wrongpass@example.com', password)).rejects.toThrow(
         UnauthorizedException,
+      );
+    });
+
+    it('should lock account after 5 consecutive failed login attempts', async () => {
+      const lockEmail = 'lockmeout@example.com';
+      usersService.findByEmail.mockResolvedValue(user as any);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+
+      // Perform 5 failed attempts
+      for (let i = 0; i < 5; i++) {
+        await expect(service.signIn(lockEmail, 'wrongpass')).rejects.toThrow(
+          UnauthorizedException,
+        );
+      }
+
+      // 6th attempt should fail immediately with lockout exception message
+      await expect(service.signIn(lockEmail, 'wrongpass')).rejects.toThrow(
+        'Too many failed login attempts for this account',
       );
     });
   });

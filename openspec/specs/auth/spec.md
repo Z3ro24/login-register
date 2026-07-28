@@ -1,22 +1,26 @@
 ## Purpose
 
-Provide standard endpoints to manage User authentication sessions (sign-in, token refresh, sign-out, logout-all, and CSRF protection) with JWT security, token revocation, rate limiting, and role-based access control (RBAC).
+Provide standard endpoints to manage User authentication sessions (sign-in, token refresh, sign-out, logout-all, and CSRF protection) with JWT security, token revocation, rate limiting, account lockout, and role-based access control (RBAC).
 
 ## Requirements
 
 ### Requirement: User sign in
-The system SHALL support authenticating users via their credentials (email and password).
+The system SHALL support authenticating users via their credentials (email and password) and enforce account lockout upon repeated authentication failures for a specific email address.
 - On success, the system SHALL generate an Access Token (valid for 30 minutes) and a Refresh Token (valid for 7 days) as JWTs.
 - The system SHALL attach the tokens to the response headers using secure HTTP-only cookies: `accessToken` and `refreshToken`.
 - The cookies MUST be configured with the flags: `httpOnly: true`, `secure: true` (in production), and `sameSite: 'strict'` or `'lax'`.
 
 #### Scenario: Successful sign in
 - **WHEN** a client sends a POST request to `/auth/login` with valid email and password
-- **THEN** the system SHALL return status code 200, set the `accessToken` and `refreshToken` cookies, and return the authenticated user's details (excluding password).
+- **THEN** the system SHALL return status code 200, set the `accessToken` and `refreshToken` cookies, return the authenticated user's details (excluding password), and reset any failed attempt counters for that email.
 
 #### Scenario: Sign in with invalid credentials
 - **WHEN** a client sends a POST request to `/auth/login` with incorrect email or password
-- **THEN** the system SHALL reject the request with status code 401 (Unauthorized).
+- **THEN** the system SHALL reject the request with status code 401 (Unauthorized) and increment the failed attempt counter for that email.
+
+#### Scenario: Account locked due to repeated failed login attempts
+- **WHEN** 5 consecutive failed login attempts occur for a specific email address within a 15-minute window
+- **THEN** the system SHALL reject subsequent login requests for that email address with HTTP 401 Unauthorized indicating the account is temporarily locked out.
 
 ### Requirement: User sign-in rate limiting
 The system SHALL limit the rate of login attempts to prevent brute-force attacks.

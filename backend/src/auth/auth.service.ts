@@ -7,6 +7,14 @@ import * as crypto from 'crypto';
 
 @Injectable()
 export class AuthService {
+  private readonly failedAttemptsMap = new Map<
+    string,
+    { count: number; lockUntil: number | null; firstAttemptTime: number }
+  >();
+
+  private readonly MAX_FAILED_ATTEMPTS = 5;
+  private readonly LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
@@ -33,16 +41,81 @@ export class AuthService {
     return crypto.createHash('sha256').update(token).digest('hex');
   }
 
+  private checkAccountLockout(email: string) {
+    const normalizedEmail = email.toLowerCase();
+    const record = this.failedAttemptsMap.get(normalizedEmail);
+
+    if (!record) return;
+
+    const now = Date.now();
+
+    // Check if account is currently locked out
+    if (record.lockUntil) {
+      if (now < record.lockUntil) {
+        const remainingMinutes = Math.ceil((record.lockUntil - now) / 60000);
+        throw new UnauthorizedException(
+          `Too many failed login attempts for this account. Locked for ${remainingMinutes} more minute(s).`,
+        );
+      } else {
+        // Lockout expired, reset record
+        this.failedAttemptsMap.delete(normalizedEmail);
+      }
+    }
+  }
+
+  private registerFailedAttempt(email: string) {
+    const normalizedEmail = email.toLowerCase();
+    const now = Date.now();
+    const record = this.failedAttemptsMap.get(normalizedEmail);
+
+    if (!record) {
+      this.failedAttemptsMap.set(normalizedEmail, {
+        count: 1,
+        lockUntil: null,
+        firstAttemptTime: now,
+      });
+      return;
+    }
+
+    // Reset window if 15 minutes have passed since first attempt
+    if (now - record.firstAttemptTime > this.LOCKOUT_DURATION_MS) {
+      this.failedAttemptsMap.set(normalizedEmail, {
+        count: 1,
+        lockUntil: null,
+        firstAttemptTime: now,
+      });
+      return;
+    }
+
+    record.count += 1;
+
+    if (record.count >= this.MAX_FAILED_ATTEMPTS) {
+      record.lockUntil = now + this.LOCKOUT_DURATION_MS;
+    }
+  }
+
+  private resetFailedAttempts(email: string) {
+    this.failedAttemptsMap.delete(email.toLowerCase());
+  }
+
   async signIn(email: string, pass: string) {
+    // 1. Check if the account is currently locked out
+    this.checkAccountLockout(email);
+
     const user = await this.usersService.findByEmail(email);
     if (!user) {
+      this.registerFailedAttempt(email);
       throw new UnauthorizedException('Invalid credentials');
     }
 
     const isMatch = await bcrypt.compare(pass, user.password);
     if (!isMatch) {
+      this.registerFailedAttempt(email);
       throw new UnauthorizedException('Invalid credentials');
     }
+
+    // Reset failed attempts on successful sign in
+    this.resetFailedAttempts(email);
 
     const payload = { sub: user.id, email: user.email, role: user.role };
 
