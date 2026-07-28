@@ -35,6 +35,10 @@ const LoginPage = () => {
     loginMutation.mutate(data);
   };
 
+  const handleGoogleLogin = () => {
+    window.location.href = 'http://localhost:3000/api/v1/auth/google';
+  };
+
   return (
     <div>
       <h2>Iniciar Sesión</h2>
@@ -60,6 +64,24 @@ const LoginPage = () => {
           {loginMutation.isPending ? 'Ingresando...' : 'Iniciar Sesión'}
         </button>
       </form>
+
+      <div style={{ marginTop: '1rem', marginBottom: '1rem' }}>
+        <button
+          type="button"
+          onClick={handleGoogleLogin}
+          style={{
+            backgroundColor: '#4285F4',
+            color: 'white',
+            border: 'none',
+            padding: '10px 16px',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontWeight: 'bold',
+          }}
+        >
+          🌐 Continuar con Google
+        </button>
+      </div>
 
       <p>
         ¿No tienes cuenta? <Link to="/register">Regístrate</Link>
