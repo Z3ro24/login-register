@@ -1,15 +1,37 @@
-import { Controller, Post, Body, Res, Req, HttpCode, HttpStatus, UnauthorizedException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  Res,
+  Req,
+  HttpCode,
+  HttpStatus,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import * as express from 'express';
 import { Public } from './decorators/public.decorator';
+import { ActiveUser } from '../common/decorators/active-user.decorator';
+import { generateCsrfToken } from '../csrf.config';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Get('csrf-token')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  getCsrfToken(@Req() request: express.Request, @Res() response: express.Response) {
+    const csrfToken = generateCsrfToken(request, response, { overwrite: true });
+    return response.json({ csrfToken });
+  }
+
   @Post('login')
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @HttpCode(HttpStatus.OK)
   async login(
     @Body() loginDto: LoginDto,
@@ -39,6 +61,12 @@ export class AuthController {
     return result.user;
   }
 
+  @Get('me')
+  @HttpCode(HttpStatus.OK)
+  async getMe(@ActiveUser('sub') userId: string) {
+    return this.authService.getMe(userId);
+  }
+
   @Post('refresh')
   @Public()
   @HttpCode(HttpStatus.OK)
@@ -51,8 +79,8 @@ export class AuthController {
       throw new UnauthorizedException('No refresh token provided');
     }
 
-    const payload = await this.authService.verifyRefreshToken(refreshToken);
-    const newAccessToken = await this.authService.generateAccessTokenFromPayload(payload);
+    const { newAccessToken, newRefreshToken } =
+      await this.authService.rotateRefreshToken(refreshToken);
 
     response.cookie('accessToken', newAccessToken, {
       httpOnly: true,
@@ -62,29 +90,83 @@ export class AuthController {
       path: '/',
     });
 
+    response.cookie('refreshToken', newRefreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: '/',
+    });
+
     return { message: 'Token refreshed successfully' };
   }
 
   @Post('logout')
   @Public()
   @HttpCode(HttpStatus.OK)
-  async logout(@Res({ passthrough: true }) response: express.Response) {
-    response.cookie('accessToken', '', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 0,
-      path: '/',
-    });
+  async logout(
+    @Req() request: express.Request,
+    @Res({ passthrough: true }) response: express.Response,
+  ) {
+    const refreshToken = request.cookies?.['refreshToken'];
+    if (refreshToken) {
+      await this.authService.revokeRefreshToken(refreshToken);
+    }
 
-    response.cookie('refreshToken', '', {
+    const authCookieOptions: express.CookieOptions = {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       maxAge: 0,
+      expires: new Date(0),
+      path: '/',
+    };
+
+    response.cookie('accessToken', '', authCookieOptions);
+    response.cookie('refreshToken', '', authCookieOptions);
+
+    // Clear CSRF cookie on logout
+    response.cookie('_csrf', '', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 0,
+      expires: new Date(0),
       path: '/',
     });
 
     return { message: 'Logged out successfully' };
+  }
+
+  @Post('logout-all')
+  @HttpCode(HttpStatus.OK)
+  async logoutAll(
+    @ActiveUser('sub') userId: string,
+    @Res({ passthrough: true }) response: express.Response,
+  ) {
+    await this.authService.revokeAllUserRefreshTokens(userId);
+
+    const authCookieOptions: express.CookieOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 0,
+      expires: new Date(0),
+      path: '/',
+    };
+
+    response.cookie('accessToken', '', authCookieOptions);
+    response.cookie('refreshToken', '', authCookieOptions);
+
+    response.cookie('_csrf', '', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 0,
+      expires: new Date(0),
+      path: '/',
+    });
+
+    return { message: 'Logged out from all devices successfully' };
   }
 }

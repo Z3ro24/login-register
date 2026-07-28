@@ -32,9 +32,14 @@ export class AuthGuard implements CanActivate {
       throw new UnauthorizedException('Access token is missing');
     }
 
+    const secret = process.env.JWT_ACCESS_SECRET;
+    if (!secret) {
+      throw new Error('JWT_ACCESS_SECRET environment variable is missing in .env');
+    }
+
     try {
       const payload = await this.jwtService.verifyAsync(token, {
-        secret: process.env.JWT_ACCESS_SECRET ?? 'access-secret-fallback-key',
+        secret,
       });
       
       // Attach user payload to request

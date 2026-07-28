@@ -26,13 +26,25 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // Cookie parser is required before using csrf-csrf protection
-  app.use(
-    cookieParser(process.env.COOKIE_SECRET ?? 'cookie-secret-fallback-for-dev'),
-  );
+  // Cookie parser requires COOKIE_SECRET environment variable
+  const cookieSecret = process.env.COOKIE_SECRET;
+  if (!cookieSecret) {
+    throw new Error('COOKIE_SECRET environment variable is missing in .env');
+  }
+  app.use(cookieParser(cookieSecret));
 
-  // Double submit cookie CSRF protection
-  // app.use(doubleCsrfProtection);
+  // Debug middleware for inspecting CSRF headers and cookies
+  app.use((req: any, res: any, next: any) => {
+    if (req.method !== 'GET') {
+      // console.log(`[CSRF Debug] ${req.method} ${req.url}`);
+      // console.log(`[CSRF Debug] req.cookies:`, req.cookies);
+      // console.log(`[CSRF Debug] x-csrf-token header:`, req.headers['x-csrf-token']);
+    }
+    next();
+  });
+
+  // Enable Double Submit Cookie CSRF Protection
+  app.use(doubleCsrfProtection);
 
   // Enable global validation pipe for request DTOs
   app.useGlobalPipes(

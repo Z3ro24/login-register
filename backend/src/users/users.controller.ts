@@ -8,6 +8,7 @@ import {
   Delete,
   ForbiddenException,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -22,6 +23,7 @@ export class UsersController {
 
   @Post()
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   create(@Body() createUserDto: CreateUserDto) {
     return this.usersService.create(createUserDto);
   }

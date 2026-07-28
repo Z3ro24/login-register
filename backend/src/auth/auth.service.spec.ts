@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
+import { PrismaService } from '../prisma/prisma.service';
 import { UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 
@@ -11,15 +12,31 @@ describe('AuthService', () => {
   let service: AuthService;
   let usersService: jest.Mocked<UsersService>;
   let jwtService: jest.Mocked<JwtService>;
+  let prismaService: any;
+
+  beforeAll(() => {
+    process.env.JWT_ACCESS_SECRET = 'test-access-secret-key';
+    process.env.JWT_REFRESH_SECRET = 'test-refresh-secret-key';
+  });
 
   beforeEach(async () => {
     const mockUsersService = {
       findByEmail: jest.fn(),
+      findOne: jest.fn(),
     };
 
     const mockJwtService = {
       signAsync: jest.fn(),
       verifyAsync: jest.fn(),
+    };
+
+    const mockPrismaService = {
+      refreshToken: {
+        create: jest.fn().mockResolvedValue({}),
+        findUnique: jest.fn(),
+        update: jest.fn().mockResolvedValue({}),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -33,12 +50,17 @@ describe('AuthService', () => {
           provide: JwtService,
           useValue: mockJwtService,
         },
+        {
+          provide: PrismaService,
+          useValue: mockPrismaService,
+        },
       ],
     }).compile();
 
     service = module.get<AuthService>(AuthService);
     usersService = module.get(UsersService);
     jwtService = module.get(JwtService);
+    prismaService = module.get(PrismaService);
   });
 
   it('should be defined', () => {
@@ -61,7 +83,7 @@ describe('AuthService', () => {
       deleteAt: null,
     };
 
-    it('should successfully sign in and return tokens', async () => {
+    it('should successfully sign in, store hashed token in DB, and return sanitized user data with tokens', async () => {
       usersService.findByEmail.mockResolvedValue(user as any);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       jwtService.signAsync
@@ -73,18 +95,21 @@ describe('AuthService', () => {
       expect(usersService.findByEmail).toHaveBeenCalledWith(email);
       expect(bcrypt.compare).toHaveBeenCalledWith(password, hashedPassword);
       expect(jwtService.signAsync).toHaveBeenCalledTimes(2);
+      expect(prismaService.refreshToken.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            userId: user.id,
+            token: expect.any(String),
+          }),
+        }),
+      );
       expect(result).toEqual({
         accessToken: 'mockAccessToken',
         refreshToken: 'mockRefreshToken',
         user: {
-          id: user.id,
           name: user.name,
           email: user.email,
-          isActive: user.isActive,
           role: user.role,
-          createdAt: user.createdAt,
-          updatedAt: user.updatedAt,
-          deleteAt: user.deleteAt,
         },
       });
     });
@@ -107,23 +132,72 @@ describe('AuthService', () => {
     });
   });
 
-  describe('verifyRefreshToken', () => {
-    it('should verify token and return payload', async () => {
+  describe('rotateRefreshToken', () => {
+    it('should rotate refresh token successfully when valid and not revoked', async () => {
       const payload = { sub: 'uuid-123', email: 'test@example.com', role: 'USER' };
       jwtService.verifyAsync.mockResolvedValue(payload);
+      prismaService.refreshToken.findUnique.mockResolvedValue({
+        id: 'token-uuid',
+        token: 'hashedToken',
+        userId: 'uuid-123',
+        isRevoked: false,
+      });
+      jwtService.signAsync
+        .mockResolvedValueOnce('newAccessToken')
+        .mockResolvedValueOnce('newRefreshToken');
 
-      const result = await service.verifyRefreshToken('validToken');
+      const result = await service.rotateRefreshToken('validToken');
 
-      expect(jwtService.verifyAsync).toHaveBeenCalledWith('validToken', expect.any(Object));
-      expect(result).toBe(payload);
+      expect(prismaService.refreshToken.update).toHaveBeenCalledWith({
+        where: { id: 'token-uuid' },
+        data: { isRevoked: true },
+      });
+      expect(prismaService.refreshToken.create).toHaveBeenCalled();
+      expect(result).toEqual({
+        newAccessToken: 'newAccessToken',
+        newRefreshToken: 'newRefreshToken',
+      });
     });
 
-    it('should throw UnauthorizedException on invalid token', async () => {
-      jwtService.verifyAsync.mockRejectedValue(new Error('JWT expired'));
+    it('should detect reuse and trigger mass revocation if token is revoked in DB', async () => {
+      const payload = { sub: 'uuid-123', email: 'test@example.com', role: 'USER' };
+      jwtService.verifyAsync.mockResolvedValue(payload);
+      prismaService.refreshToken.findUnique.mockResolvedValue({
+        id: 'token-uuid',
+        token: 'hashedToken',
+        userId: 'uuid-123',
+        isRevoked: true,
+      });
 
-      await expect(service.verifyRefreshToken('invalidToken')).rejects.toThrow(
+      await expect(service.rotateRefreshToken('revokedToken')).rejects.toThrow(
         UnauthorizedException,
       );
+      expect(prismaService.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { userId: 'uuid-123' },
+        data: { isRevoked: true },
+      });
+    });
+  });
+
+  describe('revokeRefreshToken', () => {
+    it('should mark refresh token as revoked in DB', async () => {
+      await service.revokeRefreshToken('tokenToRevoke');
+
+      expect(prismaService.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { token: service.hashToken('tokenToRevoke') },
+        data: { isRevoked: true },
+      });
+    });
+  });
+
+  describe('revokeAllUserRefreshTokens', () => {
+    it('should revoke all refresh tokens for a given user', async () => {
+      await service.revokeAllUserRefreshTokens('uuid-123');
+
+      expect(prismaService.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { userId: 'uuid-123' },
+        data: { isRevoked: true },
+      });
     });
   });
 });
